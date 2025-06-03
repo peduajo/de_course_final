@@ -1,0 +1,19 @@
+# -----------------------------
+# Python ─ cachés de bytecode
+# -----------------------------
+__pycache__/
+*.py[cod]        # .pyc, .pyo, .pyd
+
+# -----------------------------
+# Terraform ─ estado local
+# -----------------------------
+.terraform/
+*.tfstate
+*.tfstate.*
+
+# Bloqueo y volcados de errores (opcionales pero recomendados)
+.terraform.lock.hcl
+crash.log
+
+.ipynb_checkpoints/
+data/
