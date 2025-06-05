@@ -45,8 +45,9 @@ jobs:
       run: terraform -chdir=terraform apply -auto-approve -input=false
 
   deploy_dags:
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' }}
     runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     # GitHub nos dará un ID-token para el paso de autenticación OIDC
     permissions:
