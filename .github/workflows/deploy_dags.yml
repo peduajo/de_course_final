@@ -26,7 +26,6 @@ jobs:
       REQS_FILE: ./requirements.txt
       PROJECT_ID: taxy-rides-ny-459209
       GCP_PATH_SPARK_JOB_SCRIPT: jobs/transform.py
-      REGION: europe-west1
 
     steps:
     # 1) Clonamos el commit que acaba de llegar
