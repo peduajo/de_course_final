@@ -47,7 +47,7 @@ def upload_data(mode="all", year=None, month=None):
             for month in range(1, 13)
         ]
 
-        with Pool(processes=16) as pool:
+        with Pool(processes=4) as pool:
             pool.starmap(worker, args)
 
         url_lookup_table_airlane = "https://www.transtats.bts.gov/Download_Lookup.asp?Y11x72=Y_haVdhR_PNeeVRef"
