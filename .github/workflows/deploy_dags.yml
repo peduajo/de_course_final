@@ -60,7 +60,8 @@ jobs:
           --source="${DAG_FOLDER}/*" \
           --quiet
 
-        gcloud composer environments storage pypi packages import \
-        --environment="$ENV" \
-        --location="$REGION" \
-        --source="${REQS_FILE}"
+        echo "Updating PyPI packages in ${ENV_NAME} …"
+        gcloud composer environments update "${ENV_NAME}" \
+          --location "${REGION}" \
+          --update-pypi-packages-from-file "${REQS_FILE}" \
+          --quiet
