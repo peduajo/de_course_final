@@ -1,4 +1,4 @@
-name: Terraform infra
+name: terraform
 on:
   push:
     branches: [dev, main]
