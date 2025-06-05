@@ -3,10 +3,12 @@ on:
   workflow_run:
     workflows: ["Terraform infra"]   # nombre EXACTO del primer workflow
     types: [completed]
+    branches: [main, dev]
 
 jobs:
   deploy_dags:
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     # GitHub nos dará un ID-token para el paso de autenticación OIDC
     permissions:
