@@ -3,25 +3,32 @@
 
 from pyspark.sql import SparkSession
 
-import pandas as pd
-import numpy as np
-
 from pyspark.sql.functions import split, trim, col, broadcast
 from pyspark.sql import functions as F
+import argparse
+
+parser = argparse.ArgumentParser(description='Process some integers.')
+parser.add_argument('--year', type=int, help='Year parameter')
+parser.add_argument('--month', type=int, help='Month parameter')
+parser.add_argument('--bucket', type=str, help='Bucket input parameter')
+parser.add_argument('--tmp_bucket', type=str, help='Bucket input parameter')
+parser.add_argument('--bq_dataset', type=str, help='BQ dataset output parameter')
+
+args = parser.parse_args()
 
 spark = SparkSession.builder \
     .appName('dev') \
     .getOrCreate()
 
 
-spark.conf.set('temporaryGcsBucket', 'dataproc-temp-europe-west1-828225226997-fckhkym8')
+spark.conf.set('temporaryGcsBucket', args.tmp_bucket)
     
-df_fact_flights = spark.read.csv("gs://airplanes-bucket-dev/raw/flights/*/*.csv",
+df_fact_flights = spark.read.csv(f"gs://{args.bucket}/raw/flights/{args.year}/{args.month:02d}.csv",
                                   header=True,
                                   inferSchema=True)
 
 
-df_airlanes = spark.read.csv("gs://airplanes-bucket-dev/raw/airlines.csv",
+df_airlanes = spark.read.csv(f"gs://{args.bucket}/raw/airlines.csv",
                              header=True,
                              inferSchema=True)
 
@@ -39,7 +46,7 @@ df_fact_flights = df_fact_flights.join(broadcast(df_airlanes),
                                        how='left')
 
 
-df_airports = spark.read.csv("gs://airplanes-bucket-dev/raw/airports.csv",
+df_airports = spark.read.csv(f"gs://{args.bucket}/raw/airports.csv",
                              header=True,
                              inferSchema=True)
 
@@ -107,21 +114,20 @@ timeseries_agg_dest_airport = (
 
 timeseries_agg_airlane.show()
 
-
 timeseries_agg_airlane.write.format('bigquery') \
-    .option('table', "flights_dataset.timeseries_agg_airlane") \
-    .save(mode='overwrite')
+    .option('table', f"{args.bq_dataset}.timeseries_agg_airlane") \
+    .save(mode='append')
 
 timeseries_agg_orig_airport.show()
 
 timeseries_agg_orig_airport.write.format('bigquery') \
-    .option('table', "flights_dataset.timeseries_agg_orig_airport") \
-    .save(mode='overwrite')
+    .option('table', f"{args.bq_dataset}.timeseries_agg_orig_airport") \
+    .save(mode='append')
 
 
 timeseries_agg_dest_airport.show()
 
 timeseries_agg_dest_airport.write.format('bigquery') \
-    .option('table', "flights_dataset.timeseries_agg_dest_airport") \
-    .save(mode='overwrite')
+    .option('table', f"{args.bq_dataset}.timeseries_agg_dest_airport") \
+    .save(mode='append')
 

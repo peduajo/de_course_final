@@ -24,6 +24,9 @@ jobs:
       DAG_FOLDER: ./dags         # carpeta de DAGs dentro del repo
       UTILS_FOLDER: ./utils
       REQS_FILE: ./requirements.txt
+      PROJECT_ID: taxy-rides-ny-459209
+      GCP_PATH_SPARK_JOB_SCRIPT: jobs/transform.py
+      REGION: europe-west1
 
     steps:
     # 1) Clonamos el commit que acaba de llegar
@@ -48,9 +51,15 @@ jobs:
         # main → PROD, resto → DEV
         if [[ "${GITHUB_REF##*/}" == "main" ]]; then
           ENV_NAME="${COMPOSER_PROD}"
+          SUFFIX="_prod"
         else
           ENV_NAME="${COMPOSER_DEV}"
+          SUFFIX="_dev"
         fi
+
+        BUCKET="airplanes-bucket${SUFFIX}"
+        TMP_BUCKET="dataproc-temp-europe-west1-828225226997-fckhkym8${SUFFIX}"
+        BQ_DS="flights_dataset${SUFFIX}"
 
         echo "Deploying DAGs to ${ENV_NAME} in ${REGION}…"
 
@@ -65,3 +74,14 @@ jobs:
           --location "${REGION}" \
           --update-pypi-packages-from-file "${REQS_FILE}" \
           --quiet
+
+        # CI/CD: parte extra del workflow después de instalar requirements
+        gcloud composer environments update ${ENV_NAME} \
+          --location "$REGION" \
+          --update-env-variables \
+              TF_VAR_bucket_name=${BUCKET},\
+              TF_VAR_tmp_bucket_name=${TMP_BUCKET},\
+              TF_VAR_bq_dataset_name=${BQ_DS},\ 
+              TF_VAR_project_id=${PROJECT_ID} \
+              REGION=${REGION} \
+              GCP_PATH_SPARK_JOB_SCRIPT=${GCP_PATH_SPARK_JOB_SCRIPT}
