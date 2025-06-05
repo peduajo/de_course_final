@@ -123,7 +123,25 @@ jobs:
           echo "$OUTPUT"       # paquetes instalados con éxito
         fi
 
-        # CI/CD: parte extra del workflow después de instalar requirements
-        gcloud composer environments update ${ENV_NAME} \
-        --location "${REGION}" \
-        --update-env-variables=TF_VAR_bucket_name=${BUCKET},TF_VAR_tmp_bucket_name=${TMP_BUCKET},TF_VAR_bq_dataset_name=${BQ_DS},TF_VAR_project_id=${PROJECT_ID},REGION=${REGION},GCP_PATH_SPARK_JOB_SCRIPT=${GCP_PATH_SPARK_JOB_SCRIPT}
+        CMD="gcloud composer environments update ${ENV_NAME} \
+          --location ${REGION} \
+          --update-env-variables=\
+        TF_VAR_bucket_name=${BUCKET},\
+        TF_VAR_tmp_bucket_name=${TMP_BUCKET},\
+        TF_VAR_bq_dataset_name=${BQ_DS},\
+        TF_VAR_project_id=${PROJECT_ID},\
+        REGION=${REGION},\
+        GCP_PATH_SPARK_JOB_SCRIPT=${GCP_PATH_SPARK_JOB_SCRIPT}"
+
+        set +e
+        OUTPUT=$($CMD 2>&1)
+        STATUS=$?
+        set -e
+
+        if [[ $STATUS -eq 1 && "$OUTPUT" == *"does not result in any change"* ]]; then
+          echo "Composer variables idénticas — se omite actualización."
+        elif [[ $STATUS -ne 0 ]]; then
+          echo "$OUTPUT"; exit $STATUS
+        else
+          echo "$OUTPUT"
+        fi
