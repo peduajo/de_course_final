@@ -69,10 +69,21 @@ jobs:
           --quiet
 
         echo "Updating PyPI packages in ${ENV_NAME} …"
-        gcloud composer environments update "${ENV_NAME}" \
-          --location "${REGION}" \
-          --update-pypi-packages-from-file "${REQS_FILE}" \
-          --quiet
+        set +e   # desactiva exit-on-error temporalmente
+        OUTPUT=$(gcloud composer environments update "$ENV" \
+                  --location "$REGION" \
+                  --update-pypi-packages-from-file requirements.txt 2>&1)
+        STATUS=$?
+        set -e   # vuelve a activar
+
+        if [[ $STATUS -eq 1 && "$OUTPUT" == *"does not result in any change"* ]]; then
+          echo "requirements.txt is identical — nothing to update."
+        elif [[ $STATUS -ne 0 ]]; then
+          echo "$OUTPUT"
+          exit $STATUS         # error real: aborta el job
+        else
+          echo "$OUTPUT"       # paquetes instalados con éxito
+        fi
 
         # CI/CD: parte extra del workflow después de instalar requirements
         gcloud composer environments update ${ENV_NAME} \
