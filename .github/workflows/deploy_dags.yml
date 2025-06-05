@@ -1,0 +1,59 @@
+name: Deploy Airflow DAGs to Cloud Composer
+
+on:
+  # Desplegamos cada vez que se hace push a dev o main
+  push:
+    branches:
+      - dev        # → entorno DEV
+      - main       # → entorno PROD
+
+jobs:
+  deploy-dags:
+    runs-on: ubuntu-latest
+
+    # GitHub nos dará un ID-token para el paso de autenticación OIDC
+    permissions:
+      id-token: write       # imprescindible para Workload Identity Federation
+      contents: read        # necesario para hacer checkout del repo
+
+    # Variables comunes al job
+    env:
+      REGION: europe-west1          # región donde creaste los Composer
+      COMPOSER_DEV: composer-dev    # nombre exacto de tu entorno DEV
+      COMPOSER_PROD: composer-prod  # nombre exacto de tu entorno PROD
+      DAG_FOLDER: ./airflow         # carpeta de DAGs dentro del repo
+
+    steps:
+    # 1) Clonamos el commit que acaba de llegar
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2) Autenticarnos en Google Cloud *sin* JSON (OIDC + Workload Identity)
+    - id: auth
+      name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}   # p.e. 'projects/123.../providers/github-provider'
+        service_account:           ${{ secrets.GCP_DEPLOY_SA }}       # 'github-composer-deployer@taxy-rides-ny-459209.iam.gserviceaccount.com'
+
+    # 3) Instalar gcloud en el runner ya autenticado
+    - name: Setup gcloud
+      uses: google-github-actions/setup-gcloud@v2
+
+    # 4) Copiar los DAGs al bucket del entorno adecuado
+    - name: Upload DAGs to Cloud Composer
+      run: |
+        # main → PROD, resto → DEV
+        if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+          ENV_NAME="${COMPOSER_PROD}"
+        else
+          ENV_NAME="${COMPOSER_DEV}"
+        fi
+
+        echo "Deploying DAGs to ${ENV_NAME} in ${REGION}…"
+
+        gcloud composer environments storage dags import \
+          --environment="${ENV_NAME}" \
+          --location="${REGION}" \
+          --source="${DAG_FOLDER}" \
+          --quiet
