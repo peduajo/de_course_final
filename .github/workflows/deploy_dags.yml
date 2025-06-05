@@ -21,7 +21,8 @@ jobs:
       REGION: europe-west1          # región donde creaste los Composer
       COMPOSER_DEV: composer-dev    # nombre exacto de tu entorno DEV
       COMPOSER_PROD: composer-prod  # nombre exacto de tu entorno PROD
-      DAG_FOLDER: ./airflow         # carpeta de DAGs dentro del repo
+      DAG_FOLDER: ./dags         # carpeta de DAGs dentro del repo
+      UTILS_FOLDER: ./utils
 
     steps:
     # 1) Clonamos el commit que acaba de llegar
@@ -56,4 +57,10 @@ jobs:
           --environment="${ENV_NAME}" \
           --location="${REGION}" \
           --source="${DAG_FOLDER}" \
+          --quiet
+
+        gcloud composer environments storage dags import \
+          --environment="${ENV_NAME}" \
+          --location="${REGION}" \
+          --source="${UTILS_FOLDER}" \
           --quiet
