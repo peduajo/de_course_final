@@ -2,7 +2,6 @@ name: Deploy Airflow DAGs to Cloud Composer
 on:
   workflow_run:
     workflows: ["Terraform infra"]   # nombre EXACTO del primer workflow
-    branches: [dev, main]
     types: [completed]
 
 jobs:
