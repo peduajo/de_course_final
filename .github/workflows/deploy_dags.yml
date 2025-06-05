@@ -23,6 +23,7 @@ jobs:
       COMPOSER_PROD: composer-prod  # nombre exacto de tu entorno PROD
       DAG_FOLDER: ./dags         # carpeta de DAGs dentro del repo
       UTILS_FOLDER: ./utils
+      REQS_FILE: ./requirements.txt
 
     steps:
     # 1) Clonamos el commit que acaba de llegar
@@ -59,8 +60,7 @@ jobs:
           --source="${DAG_FOLDER}/*" \
           --quiet
 
-        gcloud composer environments storage dags import \
-          --environment="${ENV_NAME}" \
-          --location="${REGION}" \
-          --source="${UTILS_FOLDER}" \
-          --quiet
+        gcloud composer environments storage pypi packages import \
+        --environment="$ENV" \
+        --location="$REGION" \
+        --source="${REQS_FILE}"
