@@ -87,11 +87,5 @@ jobs:
 
         # CI/CD: parte extra del workflow después de instalar requirements
         gcloud composer environments update ${ENV_NAME} \
-          --location "$REGION" \
-          --update-env-variables \
-              TF_VAR_bucket_name=${BUCKET},\
-              TF_VAR_tmp_bucket_name=${TMP_BUCKET},\
-              TF_VAR_bq_dataset_name=${BQ_DS},\ 
-              TF_VAR_project_id=${PROJECT_ID} \
-              REGION=${REGION} \
-              GCP_PATH_SPARK_JOB_SCRIPT=${GCP_PATH_SPARK_JOB_SCRIPT}
+        --location "${REGION}" \
+        --update-env-variables=TF_VAR_bucket_name=${BUCKET},TF_VAR_tmp_bucket_name=${TMP_BUCKET},TF_VAR_bq_dataset_name=${BQ_DS},TF_VAR_project_id=${PROJECT_ID},REGION=${REGION},GCP_PATH_SPARK_JOB_SCRIPT=${GCP_PATH_SPARK_JOB_SCRIPT}
