@@ -38,8 +38,7 @@ CLUSTER_NAME = "spark-cluster-{{ ds_nodash }}"
 IN_COMPOSER = os.getenv("GCS_BUCKET") is not None
 
 if IN_COMPOSER:
-    DAG_BUCKET = os.environ["GCS_BUCKET"]            # dado por Composer
-    MAIN_PY_URI = f"gs://{DAG_BUCKET}/dags/jobs/transform.py"
+    MAIN_PY_URI = "/home/airflow/gcs/dags/jobs/transform.py"
 else:
     MAIN_PY_URI = os.path.join(project_root, "dags", "jobs", "transform.py")
 

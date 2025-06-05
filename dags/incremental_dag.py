@@ -31,8 +31,7 @@ SPARK_GCS_PATH = os.getenv("GCP_PATH_SPARK_JOB_SCRIPT") # Ej: "jobs/incremental_
 IN_COMPOSER = os.getenv("GCS_BUCKET") is not None
 
 if IN_COMPOSER:
-    DAG_BUCKET = os.environ["GCS_BUCKET"]            # dado por Composer
-    MAIN_PY_URI = f"gs://{DAG_BUCKET}/dags/jobs/incremental_transform.py"
+    MAIN_PY_URI = "/home/airflow/gcs/dags/jobs/incremental_transform.py"
 else:
     MAIN_PY_URI = os.path.join(project_root, "dags", "jobs", "incremental_transform.py")
 
