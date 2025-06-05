@@ -9,11 +9,6 @@ variable "region" {
   default     = "europe-west1"
 }
 
-variable "service_account_email" {
-  type        = string
-  description = "Service account used by GCP resources"
-}
-
 variable "bucket_name" {
   type        = string
   description = "Main GCS bucket for data"
