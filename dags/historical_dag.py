@@ -62,16 +62,6 @@ with DAG(
     schedule_interval=None,
     catchup=False,
 ) as dag:
-    terraform_apply = BashOperator(
-        task_id="terraform_apply",
-        bash_command=(
-            f"cd {project_root}/dags/terraform/ && "
-            "terraform init && "
-            "terraform apply -auto-approve"
-        ),
-        execution_timeout=timedelta(minutes=10)
-    )
-
     create_cluster = DataprocCreateClusterOperator(
         task_id="create_ephemeral_cluster",
         project_id=PROJECT_ID,
@@ -122,4 +112,4 @@ with DAG(
         trigger_rule=TriggerRule.ALL_DONE,
     )
     
-    terraform_apply >> create_cluster >> download_and_upload_data >> upload_script_job_task >> submit_pyspark >> delete_cluster
+    create_cluster >> download_and_upload_data >> upload_script_job_task >> submit_pyspark >> delete_cluster

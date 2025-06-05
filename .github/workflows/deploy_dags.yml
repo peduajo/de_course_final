@@ -1,14 +1,13 @@
 name: Deploy Airflow DAGs to Cloud Composer
-
 on:
-  # Desplegamos cada vez que se hace push a dev o main
-  push:
-    branches:
-      - dev        # → entorno DEV
-      - main       # → entorno PROD
+  workflow_run:
+    workflows: ["Terraform infra"]   # nombre EXACTO del primer workflow
+    branches: [dev, main]
+    types: [completed]
 
 jobs:
-  deploy-dags:
+  deploy_dags:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
 
     # GitHub nos dará un ID-token para el paso de autenticación OIDC
