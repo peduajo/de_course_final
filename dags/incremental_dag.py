@@ -25,7 +25,7 @@ BUCKET_NAME = os.getenv("TF_VAR_bucket_name")           # Ej: "airplanes-bucket-
 PROJECT_ID  = os.getenv("TF_VAR_project_id")            # Ej: "taxy-rides-ny-459209"
 REGION      = "europe-west1"
 SPARK_GCS_PATH = os.getenv("GCP_PATH_SPARK_JOB_SCRIPT") # Ej: "jobs/incremental_transform.py"
-LOCAL_SPARK_SCRIPT = os.path.join(project_root, "scripts", "incremental_transform.py")
+LOCAL_SPARK_SCRIPT = os.path.join(project_root, "jobs", "incremental_transform.py")
 
 # Nombre base del clúster efímero
 CLUSTER_NAME = "incremental-spark-cluster-{{ ds_nodash }}"

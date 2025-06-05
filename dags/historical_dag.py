@@ -20,7 +20,7 @@ dag_folder = os.path.abspath(os.path.dirname(__file__))
 project_root = os.path.abspath(os.path.join(dag_folder, os.pardir))
 dotenv_path = os.path.join(project_root, ".env")
 
-spark_job_script_path = os.path.join(project_root, "scripts", "transform.py")
+spark_job_script_path = os.path.join(project_root, "jobs", "transform.py")
 
 if not load_dotenv(dotenv_path=dotenv_path):
     raise RuntimeError(f".env file not found: {dotenv_path}")
