@@ -56,7 +56,7 @@ jobs:
         gcloud composer environments storage dags import \
           --environment="${ENV_NAME}" \
           --location="${REGION}" \
-          --source="${DAG_FOLDER}" \
+          --source="${DAG_FOLDER}/*" \
           --quiet
 
         gcloud composer environments storage dags import \
