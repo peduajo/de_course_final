@@ -18,14 +18,22 @@ from utils.upload_data import upload_data
 dag_folder = os.path.abspath(os.path.dirname(__file__))
 project_root = os.path.abspath(os.path.join(dag_folder, os.pardir))
 dotenv_path = os.path.join(project_root, ".env")
-if not load_dotenv(dotenv_path=dotenv_path):
-    raise RuntimeError(f".env file not found: {dotenv_path}")
+
+#opcional ya que pasaremos variables de entorno a composer si lo subimos
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
 
 BUCKET_NAME = os.getenv("TF_VAR_bucket_name")           # Ej: "airplanes-bucket-dev"
 PROJECT_ID  = os.getenv("TF_VAR_project_id")            # Ej: "taxy-rides-ny-459209"
-REGION      = "europe-west1"
+REGION      = os.getenv("REGION")                # Ej: "us-central1"
 SPARK_GCS_PATH = os.getenv("GCP_PATH_SPARK_JOB_SCRIPT") # Ej: "jobs/incremental_transform.py"
-LOCAL_SPARK_SCRIPT = os.path.join(project_root, "scripts", "incremental_transform.py")
+
+IN_COMPOSER = os.getenv("GCS_BUCKET") is not None
+
+if IN_COMPOSER:
+    MAIN_PY_URI = "/home/airflow/gcs/dags/jobs/incremental_transform.py"
+else:
+    MAIN_PY_URI = os.path.join(project_root, "dags", "jobs", "incremental_transform.py")
 
 # Nombre base del clúster efímero
 CLUSTER_NAME = "incremental-spark-cluster-{{ ds_nodash }}"
@@ -57,7 +65,7 @@ with DAG(
     # 4. Subir el script PySpark incremental a GCS
     upload_inc_script = LocalFilesystemToGCSOperator(
         task_id="upload_incremental_script",
-        src=LOCAL_SPARK_SCRIPT,
+        src=MAIN_PY_URI,
         dst=SPARK_GCS_PATH,
         bucket=BUCKET_NAME,
         gcp_conn_id="google_cloud_default",
@@ -96,7 +104,10 @@ with DAG(
             "main_python_file_uri": f"gs://{BUCKET_NAME}/{SPARK_GCS_PATH}",
             "args": [
                 "--year", "{{ data_interval_start.year }}",
-                "--month", "{{ data_interval_start.month }}"
+                "--month", "{{ data_interval_start.month }}",
+                "--bucket", BUCKET_NAME,
+                "--tmp_bucket", os.getenv("TF_VAR_tmp_bucket_name"),
+                "--bq_dataset", os.getenv("TF_VAR_bq_dataset_name")
             ]
         },
     }

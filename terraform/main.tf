@@ -8,15 +8,14 @@ terraform {
 }
 
 provider "google" {
-  credentials = file(var.gcp_credentials)
   project     = var.project_id
-  region      = var.location
+  region      = var.region
 }
 
 
 resource "google_storage_bucket" "demo-bucket" {
   name          = var.bucket_name
-  location      = var.location
+  location      = var.region
   force_destroy = true
 
   lifecycle_rule {
@@ -31,7 +30,7 @@ resource "google_storage_bucket" "demo-bucket" {
 
 resource "google_storage_bucket" "tmp-bucket" {
   name          = var.tmp_bucket_name
-  location      = var.location
+  location      = var.region
   force_destroy = true
 
   lifecycle_rule {
@@ -44,47 +43,8 @@ resource "google_storage_bucket" "tmp-bucket" {
   }
 }
 
-#resource "google_dataproc_cluster" "spark_cluster" {
-#  name    = "spark-cluster"
-#  region  = var.location          # usa solo la región, p. ej. "europe-west4"
-#  project = var.project_id
-
-#  cluster_config {
-
-#    master_config {
-#      num_instances = 1
-#      machine_type  = "n1-standard-2"
-#      disk_config   { boot_disk_size_gb = 100 }
-#    }
-
-#    worker_config {
-#      num_instances = 2
-#      machine_type  = "n1-standard-4"
-#      disk_config   { boot_disk_size_gb = 100 }
-#    }
-
-#    gce_cluster_config {
-#      service_account = var.service_account_email
-#    }
-
-#    endpoint_config {
-#        enable_http_port_access = "true"
-#    }
-
-#    software_config {
-#      image_version       = "2.2-debian12"
-#      optional_components = ["JUPYTER"]
-
-      # ← AQUÍ usa override_properties, no properties
-#      override_properties = {
-#        "spark:spark.executor.memory" = "2g"
-#      }
-#    }
-#  }
-#}
-
 resource "google_bigquery_dataset" "demo_dataset" {
   dataset_id = var.bq_dataset_name
-  location = var.location
+  location = var.region
   delete_contents_on_destroy = true
 }

@@ -1,35 +1,25 @@
-variable "location" {
-    description = "Project location in GCP"
-    default = "europe-west1"
+variable "project_id" {
+  type        = string
+  description = "GCP project ID"
 }
 
 variable "region" {
-    description = "Project region in GCP"
-    default = "europe-west4-a"  
-}
-
-variable "gcp_credentials" {
-    description = "Path to GCP credentials file"
-    default = "/home/eduardo/airflow/gcp_credentials.json"  
-}
-
-variable "service_account_email" {
-    description = "Service account email"
-    default = "final-orchestator@taxy-rides-ny-459209.iam.gserviceaccount.com"  
-}
-
-variable "project_id" {
-    description = "Project ID in GCP"
+  type        = string
+  description = "Default region for resources"
+  default     = "europe-west1"
 }
 
 variable "bucket_name" {
-    description = "Bucket name in GCP"
+  type        = string
+  description = "Main GCS bucket for data"
 }
 
 variable "tmp_bucket_name" {
-    description = "TMP Bucket name in GCP"
+  type        = string
+  description = "Temporary / staging bucket"
 }
 
 variable "bq_dataset_name" {
-    description = "Dataset name in BigQuery"
+  type        = string
+  description = "BigQuery dataset name"
 }

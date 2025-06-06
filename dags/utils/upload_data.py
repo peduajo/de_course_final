@@ -4,7 +4,7 @@ from io import BytesIO
 import zipfile
 import os
 
-import multiprocessing
+from multiprocessing.dummy import Pool
 
 client = storage.Client()
 
@@ -41,8 +41,14 @@ def worker(year, month):
 
 def upload_data(mode="all", year=None, month=None):
     if mode =="all":
-        with multiprocessing.Pool(processes=16) as pool:
-            pool.starmap(worker, [(year, month) for year in range(2020, 2024) for month in range(1, 13)])
+        args = [
+            (year, month)
+            for year in range(2020, 2024)
+            for month in range(1, 13)
+        ]
+
+        with Pool(processes=4) as pool:
+            pool.starmap(worker, args)
 
         url_lookup_table_airlane = "https://www.transtats.bts.gov/Download_Lookup.asp?Y11x72=Y_haVdhR_PNeeVRef"
         url_lookup_table_airport = "https://www.transtats.bts.gov/Download_Lookup.asp?Y11x72=Y_NVecbeg_VQ"

@@ -1,0 +1,147 @@
+name: Terraform infra and composer 
+on:
+  push:
+    branches: [dev, main]
+
+jobs:
+  terraform:
+    runs-on: macos-latest
+    permissions:
+      id-token: write
+      contents: read
+    # ------------- variables de entorno para Terraform y los DAGs -----
+    env:
+      TF_VAR_bucket_name:      ${{ github.ref == 'refs/heads/main' && 'airplanes-bucket_prod' || 'airplanes-bucket_dev' }}
+      TF_VAR_tmp_bucket_name:  ${{ github.ref == 'refs/heads/main' && 'dataproc-temp-europe-west1-828225226997-fckhkym8_prod' || 'dataproc-temp-europe-west1-828225226997-fckhkym8_dev' }}
+      TF_VAR_bq_dataset_name:  ${{ github.ref == 'refs/heads/main' && 'flights_dataset_prod'  || 'flights_dataset_dev' }}
+      TF_VAR_project_id:       taxy-rides-ny-459209
+
+    steps:
+    - uses: actions/checkout@v4
+
+    # OIDC → SA de despliegue
+    - uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+        service_account:            ${{ secrets.GCP_DEPLOY_SA }}
+
+    - uses: hashicorp/setup-terraform@v3
+      with: { terraform_version: 1.8.5 }
+
+    # Seleccionar (o crear) workspace según la rama
+    - name: Init + Select workspace
+      run: |
+        cd terraform
+        terraform init -input=false
+        WS=$( [[ "${GITHUB_REF##*/}" == "main" ]] && echo prod || echo dev )
+        terraform workspace select "$WS" || terraform workspace new "$WS"
+
+    - name: Terraform Plan
+      run: terraform -chdir=terraform plan -input=false -no-color
+
+    # Auto-apply en dev; en main se aplica sólo tras merge (no en PR)
+    - name: Terraform Apply
+      if: github.ref == 'refs/heads/dev' || (github.ref == 'refs/heads/main' && github.event_name != 'pull_request')
+      run: terraform -chdir=terraform apply -auto-approve -input=false
+
+  deploy_dags:
+    needs: terraform
+    if: ${{ needs.terraform.result == 'success' }}
+    runs-on: macos-latest
+
+    # GitHub nos dará un ID-token para el paso de autenticación OIDC
+    permissions:
+      id-token: write       # imprescindible para Workload Identity Federation
+      contents: read        # necesario para hacer checkout del repo
+
+    # Variables comunes al job
+    env:
+      REGION: europe-west1          # región donde creaste los Composer
+      COMPOSER_DEV: composer-dev    # nombre exacto de tu entorno DEV
+      COMPOSER_PROD: composer-prod  # nombre exacto de tu entorno PROD
+      DAG_FOLDER: ./dags         # carpeta de DAGs dentro del repo
+      UTILS_FOLDER: ./utils
+      REQS_FILE: ./requirements.txt
+      PROJECT_ID: taxy-rides-ny-459209
+      GCP_PATH_SPARK_JOB_SCRIPT: jobs/transform.py
+
+    steps:
+    # 1) Clonamos el commit que acaba de llegar
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # 2) Autenticarnos en Google Cloud *sin* JSON (OIDC + Workload Identity)
+    - id: auth
+      name: Authenticate to Google Cloud
+      uses: google-github-actions/auth@v2
+      with:
+        workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}   # p.e. 'projects/123.../providers/github-provider'
+        service_account:           ${{ secrets.GCP_DEPLOY_SA }}       # 'github-composer-deployer@taxy-rides-ny-459209.iam.gserviceaccount.com'
+
+    # 3) Instalar gcloud en el runner ya autenticado
+    - name: Setup gcloud
+      uses: google-github-actions/setup-gcloud@v2
+
+    # 4) Copiar los DAGs al bucket del entorno adecuado
+    - name: Upload DAGs to Cloud Composer
+      run: |
+        # main → PROD, resto → DEV
+        if [[ "${GITHUB_REF##*/}" == "main" ]]; then
+          ENV_NAME="${COMPOSER_PROD}"
+          SUFFIX="_prod"
+        else
+          ENV_NAME="${COMPOSER_DEV}"
+          SUFFIX="_dev"
+        fi
+
+        BUCKET="airplanes-bucket${SUFFIX}"
+        TMP_BUCKET="dataproc-temp-europe-west1-828225226997-fckhkym8${SUFFIX}"
+        BQ_DS="flights_dataset${SUFFIX}"
+
+        echo "Deploying DAGs to ${ENV_NAME} in ${REGION}…"
+
+        gcloud composer environments storage dags import \
+          --environment="${ENV_NAME}" \
+          --location="${REGION}" \
+          --source="${DAG_FOLDER}/*" \
+          --quiet
+
+        echo "Updating PyPI packages in ${ENV_NAME} …"
+        set +e   # desactiva exit-on-error temporalmente
+        OUTPUT=$(gcloud composer environments update "${ENV_NAME}" \
+                  --location "$REGION" \
+                  --update-pypi-packages-from-file requirements.txt 2>&1)
+        STATUS=$?
+        set -e   # vuelve a activar
+
+        if [[ $STATUS -eq 1 && "$OUTPUT" == *"does not result in any change"* ]]; then
+          echo "requirements.txt is identical — nothing to update."
+        elif [[ $STATUS -ne 0 ]]; then
+          echo "$OUTPUT"
+          exit $STATUS         # error real: aborta el job
+        else
+          echo "$OUTPUT"       # paquetes instalados con éxito
+        fi
+
+        CMD="gcloud composer environments update ${ENV_NAME} \
+          --location ${REGION} \
+          --update-env-variables=\
+        TF_VAR_bucket_name=${BUCKET},\
+        TF_VAR_tmp_bucket_name=${TMP_BUCKET},\
+        TF_VAR_bq_dataset_name=${BQ_DS},\
+        TF_VAR_project_id=${PROJECT_ID},\
+        REGION=${REGION},\
+        GCP_PATH_SPARK_JOB_SCRIPT=${GCP_PATH_SPARK_JOB_SCRIPT}"
+
+        set +e
+        OUTPUT=$($CMD 2>&1)
+        STATUS=$?
+        set -e
+
+        if [[ $STATUS -eq 1 && "$OUTPUT" == *"does not result in any change"* ]]; then
+          echo "Composer variables idénticas — se omite actualización."
+        elif [[ $STATUS -ne 0 ]]; then
+          echo "$OUTPUT"; exit $STATUS
+        else
+          echo "$OUTPUT"
+        fi

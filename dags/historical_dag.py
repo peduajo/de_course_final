@@ -15,15 +15,14 @@ from utils.upload_data import upload_data
 import os 
 from dotenv import load_dotenv
 
+# 1. Configuración inicial (.env)
 dag_folder = os.path.abspath(os.path.dirname(__file__))
-
 project_root = os.path.abspath(os.path.join(dag_folder, os.pardir))
 dotenv_path = os.path.join(project_root, ".env")
 
-spark_job_script_path = os.path.join(project_root, "scripts", "transform.py")
-
-if not load_dotenv(dotenv_path=dotenv_path):
-    raise RuntimeError(f".env file not found: {dotenv_path}")
+#opcional ya que pasaremos variables de entorno a composer si lo subimos
+if os.path.exists(dotenv_path):
+    load_dotenv(dotenv_path=dotenv_path)
 
 default_args = {
     "start_date": days_ago(1),
@@ -31,16 +30,28 @@ default_args = {
 
 BUCKET_NAME = os.getenv("TF_VAR_bucket_name")
 PROJECT_ID = os.getenv("TF_VAR_project_id")
-REGION = "europe-west1"
+REGION      = os.getenv("REGION")
 SPARK_SCRIPT_GCS = os.getenv("GCP_PATH_SPARK_JOB_SCRIPT")
 SUBNETWORK_URI = f"projects/{PROJECT_ID}/regions/{REGION}/subnetworks/default"
 CLUSTER_NAME = "spark-cluster-{{ ds_nodash }}"
+
+IN_COMPOSER = os.getenv("GCS_BUCKET") is not None
+
+if IN_COMPOSER:
+    MAIN_PY_URI = "/home/airflow/gcs/dags/jobs/transform.py"
+else:
+    MAIN_PY_URI = os.path.join(project_root, "dags", "jobs", "transform.py")
 
 PYSPARK_JOB = {
     "reference": { "project_id": PROJECT_ID},
     "placement": { "cluster_name": CLUSTER_NAME},
     "pyspark_job": {
-        "main_python_file_uri": os.path.join("gs://", BUCKET_NAME, SPARK_SCRIPT_GCS)
+        "main_python_file_uri": os.path.join("gs://", BUCKET_NAME, SPARK_SCRIPT_GCS),
+        "args": [
+                "--bucket", BUCKET_NAME,
+                "--tmp_bucket", os.getenv("TF_VAR_tmp_bucket_name"),
+                "--bq_dataset", os.getenv("TF_VAR_bq_dataset_name")
+            ]
     },
 }
 
@@ -50,16 +61,6 @@ with DAG(
     schedule_interval=None,
     catchup=False,
 ) as dag:
-    terraform_apply = BashOperator(
-        task_id="terraform_apply",
-        bash_command=(
-            f"cd {project_root}/terraform/ && "
-            "terraform init && "
-            "terraform apply -auto-approve"
-        ),
-        execution_timeout=timedelta(minutes=10)
-    )
-
     create_cluster = DataprocCreateClusterOperator(
         task_id="create_ephemeral_cluster",
         project_id=PROJECT_ID,
@@ -88,7 +89,7 @@ with DAG(
 
     upload_script_job_task = LocalFilesystemToGCSOperator(
         task_id="upload_script_job",
-        src=spark_job_script_path,         # Ruta absoluta calculada
+        src=MAIN_PY_URI,         # Ruta absoluta calculada
         dst=SPARK_SCRIPT_GCS,   # En el bucket, crea 'data/mi_archivo.csv'
         bucket=BUCKET_NAME,
         gcp_conn_id="google_cloud_default"
@@ -110,4 +111,4 @@ with DAG(
         trigger_rule=TriggerRule.ALL_DONE,
     )
     
-    terraform_apply >> create_cluster >> download_and_upload_data >> upload_script_job_task >> submit_pyspark >> delete_cluster
+    create_cluster >> download_and_upload_data >> upload_script_job_task >> submit_pyspark >> delete_cluster
