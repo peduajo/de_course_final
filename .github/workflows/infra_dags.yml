@@ -5,7 +5,7 @@ on:
 
 jobs:
   terraform:
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
     permissions:
       id-token: write
       contents: read
@@ -47,7 +47,7 @@ jobs:
   deploy_dags:
     needs: terraform
     if: ${{ needs.terraform.result == 'success' }}
-    runs-on: macos-latest
+    runs-on: ubuntu-latest
 
     # GitHub nos dará un ID-token para el paso de autenticación OIDC
     permissions:
